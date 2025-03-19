@@ -1,6 +1,6 @@
 {
     "name": "html-to-pdf-action",
-    "version": "3.0.0",
+    "version": "1.0.0",
     "description": "GitHub Action to convert HTML to PDF with full support for modern HTML features",
     "main": "src/index.js",
     "type": "commonjs",
