@@ -11,11 +11,11 @@ jobs:
     name: Test Direct Node.js Execution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       # Setup Node.js
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
           
@@ -89,7 +89,7 @@ jobs:
     name: Test Docker Image
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       # Create test HTML file
       - name: Create test HTML

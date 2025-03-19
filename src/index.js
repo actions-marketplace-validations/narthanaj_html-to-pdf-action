@@ -44,9 +44,14 @@ function log(message, level = 'info') {
 
 // Function to set output (works in both GitHub Actions and CLI)
 function setOutput(name, value) {
-  if (typeof core.setOutput === 'function') {
+  if (process.env.GITHUB_OUTPUT) {
+    // New method using environment file
+    fs.appendFileSync(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
+  } else if (typeof core.setOutput === 'function') {
+    // Using @actions/core method (which should use environment file if available)
     core.setOutput(name, value);
   } else {
+    // Fallback for local CLI usage
     console.log(`Output ${name}: ${value}`);
   }
 }
