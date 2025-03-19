@@ -58,5 +58,8 @@ RUN npm ci --only=production
 # Copy source code
 COPY src /app/src
 
+# Make index.js executable
+RUN chmod +x /app/src/index.js
+
 # Set the entrypoint
 ENTRYPOINT ["node", "/app/src/index.js"]

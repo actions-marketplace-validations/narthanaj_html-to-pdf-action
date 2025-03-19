@@ -216,9 +216,12 @@ docker run --rm -v $(pwd):/workspace narthanaj/html-to-pdf-action:latest \
 
 1. Clone the repository
 2. Install dependencies with `npm install`
-3. Make your changes
-4. Test locally with `./test-local.sh`
-5. Create a pull request
+3. Make the script executable with `chmod +x src/index.js`
+4. Make your changes
+5. Test locally with `./test-local.sh`
+6. Create a pull request
+
+Note: This project requires Node.js 18 or later.
 
 ## License
 

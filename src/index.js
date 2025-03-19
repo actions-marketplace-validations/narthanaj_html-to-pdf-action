@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const core = require('@actions/core');
 const puppeteer = require('puppeteer');
 const fs = require('fs-extra');
