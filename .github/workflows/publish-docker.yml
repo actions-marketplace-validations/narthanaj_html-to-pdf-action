@@ -2,7 +2,7 @@ name: Update Docker Hub Image Tags
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -14,38 +14,41 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-      
-      # Extract version from GitHub release
-      - name: Get release version
+
+      - name: Get release version (for releases)
         id: get_version
+        if: github.event_name == 'release'
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-        
-      # Add version tag to the existing Docker image
-      - name: Tag Docker image with release version
+
+      - name: Tag and push Docker image (for releases)
         if: github.event_name == 'release'
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
           MAJOR=$(echo $VERSION | cut -d. -f1)
           MINOR=$(echo $VERSION | cut -d. -f2)
-          
-          # Pull the latest image
+
           docker pull narthanaj/html-to-pdf-action:latest
-          
-          # Tag with version numbers
+
           docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$VERSION
           docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$MAJOR.$MINOR
           docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$MAJOR
-          
-          # Push the tags
+
           docker push narthanaj/html-to-pdf-action:$VERSION
           docker push narthanaj/html-to-pdf-action:$MAJOR.$MINOR
           docker push narthanaj/html-to-pdf-action:$MAJOR
+
+      - name: Tag and push Docker image (for main branch pushes)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker pull narthanaj/html-to-pdf-action:latest
+          docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:latest
+          docker push narthanaj/html-to-pdf-action:latest
