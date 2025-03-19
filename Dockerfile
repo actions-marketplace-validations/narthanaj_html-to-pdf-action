@@ -1,34 +1,28 @@
 FROM node:22-slim
 
-# Install dependencies for wkhtmltopdf and Chrome
+# Install dependencies for Puppeteer
 RUN apt-get update && apt-get install -y \
     wget \
-    fontconfig \
-    libfreetype6 \
-    libjpeg62-turbo \
-    libpng16-16 \
-    libx11-6 \
-    libxcb1 \
-    libxext6 \
-    libxrender1 \
-    xfonts-75dpi \
-    xfonts-base \
+    gnupg \
+    ca-certificates \
     fonts-liberation \
     fonts-noto-color-emoji \
     fonts-noto-cjk \
-    fonts-ipafont-gothic \
-    fonts-wqy-zenhei \
-    fonts-kacst \
-    fonts-freefont-ttf \
-    ca-certificates \
-    gnupg \
-    --no-install-recommends
-
-# Install wkhtmltopdf
-RUN wget -q https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6.1-2/wkhtmltox_0.12.6.1-2.bullseye_amd64.deb && \
-    dpkg -i wkhtmltox_0.12.6.1-2.bullseye_amd64.deb || true && \
-    apt-get -f install -y && \
-    rm wkhtmltox_0.12.6.1-2.bullseye_amd64.deb
+    libxss1 \
+    libasound2 \
+    libgtk-3-0 \
+    libcups2 \
+    libdrm2 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libxshmfence1 \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /app
@@ -43,11 +37,8 @@ COPY src /app/src
 # Make index.js executable
 RUN chmod +x /app/src/index.js
 
-# Install Playwright browsers
-RUN npx playwright install chromium --with-deps
-
-# Set environment variable for Playwright to prevent timeout issues
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Set environment variable for Node.js
+ENV NODE_OPTIONS=--no-experimental-fetch
 
 # Create a directory for temporary files
 RUN mkdir -p /tmp/html-to-pdf
