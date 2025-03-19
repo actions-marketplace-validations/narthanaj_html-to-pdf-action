@@ -21,3 +21,4 @@ pids
 *.pid
 *.seed
 *.pid.lock
+fff.yml
