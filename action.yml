@@ -55,7 +55,7 @@ inputs:
     default: 'true'
 runs:
   using: 'docker'
-  image: 'Dockerfile'
+  image: 'docker://narthanaj/html-to-pdf-action:latest'
 outputs:
   pdf_path:
     description: 'Path to the generated PDF file'

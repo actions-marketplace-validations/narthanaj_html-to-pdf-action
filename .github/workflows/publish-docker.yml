@@ -1,4 +1,4 @@
-name: Publish Docker image
+name: Update Docker Hub Image Tags
 
 on:
   release:
@@ -6,12 +6,15 @@ on:
   workflow_dispatch:
 
 jobs:
-  push_to_registry:
-    name: Push Docker image to Docker Hub
+  update_docker_tags:
+    name: Update Docker Hub image tags
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
         uses: actions/checkout@v3
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
       
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -19,23 +22,28 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
       
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v4
-        with:
-          images: narthanaj/html-to-pdf-action
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=ref,event=branch
-            type=sha,format=long
-            latest
-      
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+      # Extract version from GitHub release
+      - name: Get release version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        
+      # Add version tag to the existing Docker image
+      - name: Tag Docker image with release version
+        if: github.event_name == 'release'
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          
+          # Pull the latest image
+          docker pull narthanaj/html-to-pdf-action:latest
+          
+          # Tag with version numbers
+          docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$VERSION
+          docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$MAJOR.$MINOR
+          docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$MAJOR
+          
+          # Push the tags
+          docker push narthanaj/html-to-pdf-action:$VERSION
+          docker push narthanaj/html-to-pdf-action:$MAJOR.$MINOR
+          docker push narthanaj/html-to-pdf-action:$MAJOR

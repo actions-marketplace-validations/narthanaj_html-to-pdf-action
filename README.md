@@ -162,32 +162,63 @@ html-to-pdf-action/
 │   └── index.js
 ├── .gitignore
 ├── action.yml
-├── Dockerfile
 ├── LICENSE
 ├── package.json
+├── test-local.sh
 └── README.md
+```
+
+## Local Testing
+
+You can test the action locally using the provided script:
+
+```bash
+# Make the script executable
+chmod +x test-local.sh
+
+# Run the test script
+./test-local.sh
+```
+
+This script will test both the local Node.js execution and the Docker image execution.
+
+### Testing Node.js Directly
+
+```bash
+# Install dependencies
+npm install
+
+# Run with a file
+node src/index.js --source=./examples/test.html --output=./output/result.pdf
+
+# Run with a URL
+node src/index.js --source=https://github.com --output=./output/result.pdf
+```
+
+### Testing Docker Image
+
+```bash
+# Pull the Docker image
+docker pull narthanaj/html-to-pdf-action:latest
+
+# Run with a file
+docker run --rm -v $(pwd):/workspace narthanaj/html-to-pdf-action:latest \
+  --source=/workspace/examples/test.html \
+  --output=/workspace/output/result.pdf
+
+# Run with a URL
+docker run --rm -v $(pwd):/workspace narthanaj/html-to-pdf-action:latest \
+  --source=https://github.com \
+  --output=/workspace/output/result.pdf
 ```
 
 ## Development
 
 1. Clone the repository
 2. Install dependencies with `npm install`
-3. Run the tests with `npm test`
-4. Make your changes
+3. Make your changes
+4. Test locally with `./test-local.sh`
 5. Create a pull request
-
-## Publishing
-
-### To GitHub Marketplace
-
-1. Create a new release in GitHub
-2. Tag it with a semantic version (e.g., v1.0.0)
-3. GitHub will automatically publish it to the Marketplace
-
-### To Docker Hub
-
-1. Create a new release in GitHub or run the workflow manually
-2. The GitHub Action will automatically build and push to Docker Hub
 
 ## License
 
