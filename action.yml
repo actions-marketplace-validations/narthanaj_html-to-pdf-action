@@ -56,6 +56,8 @@ inputs:
 runs:
   using: 'docker'
   image: 'docker://narthanaj/html-to-pdf-action:latest'
+  env:
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 0
 outputs:
   pdf_path:
     description: 'Path to the generated PDF file'

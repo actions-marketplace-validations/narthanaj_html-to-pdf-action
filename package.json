@@ -23,8 +23,11 @@
     "dependencies": {
       "@actions/core": "^1.10.1",
       "@actions/github": "^6.0.0",
-      "puppeteer": "^22.12.0",
-      "fs-extra": "^11.2.0"
+      "fs-extra": "^11.2.0",
+      "puppeteer-core": "^10.4.0",
+      "chrome-launcher": "^0.15.2",
+      "axios": "^1.6.0",
+      "playwright": "^1.42.1"
     },
     "devDependencies": {
       "jest": "^29.7.0"
@@ -37,8 +40,5 @@
     },
     "engines": {
       "node": ">=18"
-    },
-    "puppeteerOptions": {
-      "executablePath": "/usr/bin/google-chrome"
     }
   }

@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 const core = require('@actions/core');
-const puppeteer = require('puppeteer');
 const fs = require('fs-extra');
 const path = require('path');
 const { URL } = require('url');
+const { spawn } = require('child_process');
+const axios = require('axios');
+const { chromium } = require('playwright');
 
 // Helper function to get input from environment or CLI arguments
 function getInput(name, options = {}) {
@@ -103,6 +105,203 @@ function parseMargins(marginStr) {
   }
 }
 
+// Function to convert HTML to PDF using Playwright
+async function convertWithPlaywright(sourceContent, sourceType, options) {
+  log('Converting with Playwright...');
+  
+  let browser;
+  try {
+    // Launch browser with minimal options to ensure it works in Docker
+    browser = await chromium.launch({
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    
+    // Set cookies if provided
+    if (options.cookies && options.cookies.length > 0) {
+      if (sourceType === 'url') {
+        const url = new URL(sourceContent);
+        for (const cookie of options.cookies) {
+          await context.addCookies([{
+            ...cookie,
+            domain: cookie.domain || url.hostname,
+            path: cookie.path || '/'
+          }]);
+        }
+      }
+    }
+    
+    // Set user agent if provided
+    if (options.userAgent) {
+      await page.setExtraHTTPHeaders({
+        'User-Agent': options.userAgent
+      });
+    }
+    
+    // Navigate to URL or set content
+    if (sourceType === 'url') {
+      await page.goto(sourceContent, { waitUntil: 'networkidle', timeout: options.timeout });
+    } else {
+      await page.setContent(sourceContent, { waitUntil: 'networkidle', timeout: options.timeout });
+    }
+    
+    // Wait for selector if provided
+    if (options.waitForSelector) {
+      await page.waitForSelector(options.waitForSelector, { timeout: options.timeout });
+    }
+    
+    // Inject custom CSS if provided
+    if (options.customCss) {
+      await page.addStyleTag({ content: options.customCss });
+    }
+    
+    // Generate PDF
+    await page.pdf({
+      path: options.output,
+      format: options.format,
+      landscape: options.orientation === 'landscape',
+      margin: options.margin,
+      printBackground: options.printBackground,
+      displayHeaderFooter: !!(options.headerTemplate || options.footerTemplate),
+      headerTemplate: options.headerTemplate || '',
+      footerTemplate: options.footerTemplate || '',
+      scale: options.scale
+    });
+    
+    await browser.close();
+    return true;
+  } catch (error) {
+    if (browser) {
+      await browser.close();
+    }
+    log(`Playwright conversion error: ${error.message}`, 'warning');
+    return false;
+  }
+}
+
+// Fallback method using wkhtmltopdf CLI if available
+async function convertWithWkhtmltopdf(sourceContent, sourceType, options) {
+  return new Promise((resolve) => {
+    log('Attempting conversion with wkhtmltopdf...');
+    
+    try {
+      // Check if wkhtmltopdf is installed
+      const checkProcess = spawn('which', ['wkhtmltopdf']);
+      checkProcess.on('close', (code) => {
+        if (code !== 0) {
+          log('wkhtmltopdf not found, skipping this method', 'warning');
+          resolve(false);
+          return;
+        }
+        
+        // Prepare wkhtmltopdf arguments
+        const args = [
+          '--enable-local-file-access',
+          '--disable-smart-shrinking',
+          '--quiet'
+        ];
+        
+        // Add margin options
+        if (options.margin) {
+          args.push(`--margin-top`, `${options.margin.top}mm`);
+          args.push(`--margin-right`, `${options.margin.right}mm`);
+          args.push(`--margin-bottom`, `${options.margin.bottom}mm`);
+          args.push(`--margin-left`, `${options.margin.left}mm`);
+        }
+        
+        // Add page size
+        if (options.format) {
+          args.push(`--page-size`, options.format);
+        }
+        
+        // Add orientation
+        if (options.orientation === 'landscape') {
+          args.push(`--orientation`, 'Landscape');
+        } else {
+          args.push(`--orientation`, 'Portrait');
+        }
+        
+        // Add background option
+        if (options.printBackground) {
+          args.push('--background');
+        }
+        
+        // Add scale factor
+        if (options.scale && options.scale !== 1) {
+          args.push(`--zoom`, options.scale.toString());
+        }
+        
+        // Add header and footer
+        if (options.headerTemplate) {
+          const headerPath = path.join(path.dirname(options.output), 'header.html');
+          fs.writeFileSync(headerPath, options.headerTemplate);
+          args.push('--header-html', headerPath);
+        }
+        
+        if (options.footerTemplate) {
+          const footerPath = path.join(path.dirname(options.output), 'footer.html');
+          fs.writeFileSync(footerPath, options.footerTemplate);
+          args.push('--footer-html', footerPath);
+        }
+        
+        // Add user agent
+        if (options.userAgent) {
+          args.push('--user-style-sheet', options.userAgent);
+        }
+        
+        // Add timeout
+        if (options.timeout) {
+          args.push('--javascript-delay', Math.floor(options.timeout / 1000).toString());
+        }
+        
+        // Add source and output
+        if (sourceType === 'url') {
+          args.push(sourceContent);
+        } else if (sourceType === 'file') {
+          args.push(sourceContent);
+        } else {
+          // Content is HTML string, write to temp file
+          const tmpHtmlPath = path.join(path.dirname(options.output), 'temp.html');
+          fs.writeFileSync(tmpHtmlPath, sourceContent);
+          args.push(tmpHtmlPath);
+        }
+        
+        args.push(options.output);
+        
+        // Run wkhtmltopdf
+        const wkProcess = spawn('wkhtmltopdf', args);
+        
+        wkProcess.stderr.on('data', (data) => {
+          log(`wkhtmltopdf warning: ${data}`, 'warning');
+        });
+        
+        wkProcess.on('close', (code) => {
+          if (code === 0) {
+            log('Successfully converted with wkhtmltopdf');
+            resolve(true);
+          } else {
+            log(`wkhtmltopdf failed with code ${code}`, 'warning');
+            resolve(false);
+          }
+        });
+      });
+    } catch (error) {
+      log(`wkhtmltopdf error: ${error.message}`, 'warning');
+      resolve(false);
+    }
+  });
+}
+
+// Alternative conversion method using a PDF conversion service (as a last resort)
+async function convertWithApiService(sourceContent, sourceType, options) {
+  // This is a placeholder for potential API service integration
+  // It would be a fallback option if all other methods fail
+  log('API-based conversion not implemented yet. Consider installing wkhtmltopdf in your container.', 'warning');
+  return false;
+}
+
 // Main function
 async function run() {
   try {
@@ -120,7 +319,7 @@ async function run() {
     const customCss = getInput('custom_css') || '';
     const cookiesStr = getInput('cookies') || '[]';
     const userAgent = getInput('user_agent');
-    const printBackground = getInput('print_background') === 'true';
+    const printBackground = getInput('print_background') !== 'false'; // Default to true
 
     // Parse margins
     const margin = parseMargins(marginInput);
@@ -138,84 +337,72 @@ async function run() {
     // Create output directory if it doesn't exist
     await fs.ensureDir(path.dirname(output));
 
-    // Launch browser
-    log('Launching browser...');
-    const browser = await puppeteer.launch({
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome',
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-accelerated-2d-canvas',
-        '--disable-gpu',
-        '--font-render-hinting=none' // Improves font rendering
-      ],
-      headless: 'new'
-    });
-
-    // Create a new page
-    const page = await browser.newPage();
-    
-    // Set user agent if provided
-    if (userAgent) {
-      await page.setUserAgent(userAgent);
-    }
-
-    // Set cookies if provided
-    if (cookies.length > 0) {
-      await page.setCookie(...cookies);
-    }
-
-    // Set timeout
-    page.setDefaultTimeout(timeout);
-
     // Determine how to load the source
+    let sourceContent;
+    let sourceType;
+    
     if (await isFilePath(source)) {
       // Source is a file path
-      const html = await fs.readFile(source, 'utf8');
-      await page.setContent(html, { waitUntil: 'networkidle0' });
-      log(`Loaded HTML from file: ${source}`);
+      sourceContent = source;
+      sourceType = 'file';
+      log(`Using file: ${source}`);
     } else if (isUrl(source)) {
       // Source is a URL
-      await page.goto(source, { waitUntil: 'networkidle0' });
-      log(`Loaded HTML from URL: ${source}`);
+      sourceContent = source;
+      sourceType = 'url';
+      log(`Using URL: ${source}`);
     } else {
       // Source is HTML content
-      await page.setContent(source, { waitUntil: 'networkidle0' });
-      log('Loaded HTML from input content');
+      sourceContent = source;
+      sourceType = 'html';
+      log('Using HTML content from input');
+    }
+    
+    // If source type is file, read the content
+    if (sourceType === 'file') {
+      sourceContent = await fs.readFile(source, 'utf8');
+      sourceType = 'html';
     }
 
-    // Inject custom CSS if provided
-    if (customCss) {
-      await page.addStyleTag({ content: customCss });
-      log('Injected custom CSS');
-    }
-
-    // Wait for selector if provided
-    if (waitForSelector) {
-      await page.waitForSelector(waitForSelector);
-      log(`Waited for selector: ${waitForSelector}`);
-    }
-
-    // Generate PDF
-    log('Generating PDF...');
-    await page.pdf({
-      path: output,
+    // Prepare options for conversion methods
+    const conversionOptions = {
+      output,
       format,
-      landscape: orientation === 'landscape',
       margin,
-      printBackground,
-      displayHeaderFooter: !!(headerTemplate || footerTemplate),
+      orientation,
       headerTemplate,
       footerTemplate,
-      scale
-    });
+      timeout,
+      scale,
+      customCss,
+      cookies,
+      userAgent,
+      printBackground,
+      waitForSelector
+    };
 
-    // Close browser
-    await browser.close();
-
-    log(`PDF generated successfully: ${output}`);
-    setOutput('pdf_path', output);
+    // Try Playwright first (most reliable)
+    log('Attempting PDF conversion...');
+    let success = await convertWithPlaywright(sourceContent, sourceType, conversionOptions);
+    
+    // If Playwright fails, try wkhtmltopdf
+    if (!success) {
+      log('Primary conversion method failed. Trying alternative method...', 'warning');
+      success = await convertWithWkhtmltopdf(sourceContent, sourceType, conversionOptions);
+    }
+    
+    // If both methods fail, try API service as last resort
+    if (!success) {
+      log('Alternative method failed. Trying last resort method...', 'warning');
+      success = await convertWithApiService(sourceContent, sourceType, conversionOptions);
+    }
+    
+    if (success) {
+      log(`PDF generated successfully: ${output}`);
+      setOutput('pdf_path', output);
+    } else {
+      setFailed('All conversion methods failed. Please ensure your HTML is valid and try installing wkhtmltopdf.');
+    }
   } catch (error) {
     setFailed(`Action failed: ${error.message}`);
   }

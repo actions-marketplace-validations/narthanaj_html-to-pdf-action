@@ -168,31 +168,15 @@ html-to-pdf-action/
 └── README.md
 ```
 
-## Building Your Own Docker Image
+## How It Works
 
-If you need to build a custom version of the Docker image:
+This action uses multiple fallback methods to ensure reliable HTML to PDF conversion:
 
-```bash
-# Clone the repository
-git clone https://github.com/[YOUR-USERNAME]/html-to-pdf-action.git
-cd html-to-pdf-action
+1. **Primary Method**: Uses Playwright with Chromium for the most accurate rendering of modern web pages
+2. **Fallback Method**: If Playwright fails, falls back to wkhtmltopdf (installed in the Docker image)
+3. **Multiple Browser Support**: The action is designed to work even if Chrome installation issues occur
 
-# Build the Docker image
-docker build -t [YOUR-USERNAME]/html-to-pdf-action:latest .
-
-# Push to Docker Hub
-docker push [YOUR-USERNAME]/html-to-pdf-action:latest
-```
-
-### Docker Image Details
-
-The Docker image includes:
-- Node.js 18
-- Google Chrome (stable)
-- Font support for many languages and emojis
-- Puppeteer configured to use the system Chrome
-
-This ensures the action works consistently in both local and GitHub Actions environments.
+This approach ensures maximum reliability across different environments and GitHub Actions runners.
 
 ### Testing Node.js Directly
 
@@ -234,7 +218,6 @@ docker run --rm -v $(pwd):/workspace narthanaj/html-to-pdf-action:latest \
 6. Create a pull request
 
 Note: This project requires Node.js 18 or later.
-
 
 ## License
 
