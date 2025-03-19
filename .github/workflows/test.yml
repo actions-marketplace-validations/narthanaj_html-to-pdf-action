@@ -23,14 +23,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      # Install browser dependencies
+      # Install browser dependencies (dynamically choose the right packages based on OS)
       - name: Install browser dependencies
         run: |
           sudo apt-get update
+          
+          # Check if we're on Ubuntu 24.04 (Noble)
+          if grep -q "noble" /etc/os-release; then
+            echo "Detected Ubuntu 24.04 (Noble)"
+            LIBASOUND_PKG="libasound2t64"
+          else
+            echo "Using standard libasound2 package"
+            LIBASOUND_PKG="libasound2"
+          fi
+          
           sudo apt-get install -y \
             ca-certificates \
             fonts-liberation \
-            libasound2t64 \
+            $LIBASOUND_PKG \
             libatk-bridge2.0-0 \
             libatk1.0-0 \
             libcairo2 \

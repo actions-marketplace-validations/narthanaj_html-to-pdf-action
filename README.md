@@ -168,15 +168,15 @@ html-to-pdf-action/
 └── README.md
 ```
 
-## How It Works
+## Cross-Platform Compatibility
 
-This action uses multiple fallback methods to ensure reliable HTML to PDF conversion:
+This action has been tested and works on:
 
-1. **Primary Method**: Uses Puppeteer 24.4.0 with Chrome for the most accurate rendering of modern web pages
-2. **Fallback Method**: Uses html-pdf-node as an alternative browser-based conversion
-3. **Guaranteed Method**: If both browser methods fail, falls back to pdf-lib for basic PDF generation
+- Ubuntu (including 24.04 Noble)
+- Debian (base for Docker images)
+- GitHub-hosted runners
 
-The latest Puppeteer version (24.4.0) includes improved stability, performance, and browser compatibility. This multi-layered approach ensures PDFs will be generated even in environments with browser installation issues.
+The action automatically adapts to different environments, ensuring compatibility across various platforms.
 
 ### Testing Node.js Directly
 
@@ -218,7 +218,6 @@ docker run --rm -v $(pwd):/workspace narthanaj/html-to-pdf-action:latest \
 6. Create a pull request
 
 Note: This project requires Node.js 18 or later.
-
 
 ## License
 
