@@ -35,7 +35,8 @@
       "ws": "^8.17.1",
       "@octokit/request": "^9.0.0",
       "@octokit/request-error": "^6.0.0",
-      "@octokit/plugin-paginate-rest": "^10.0.0"
+      "@octokit/plugin-paginate-rest": "^10.0.0",
+      "puppeteer": "^24.4.0"
     },
     "engines": {
       "node": ">=18"

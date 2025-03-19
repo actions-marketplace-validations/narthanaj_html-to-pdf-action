@@ -381,18 +381,34 @@ async function run() {
     log('Attempting PDF conversion...');
     
     // Method 1: Puppeteer
-    let success = await convertWithPuppeteer(sourceContent, conversionOptions);
+    let success = false;
+    try {
+      success = await convertWithPuppeteer(sourceContent, conversionOptions);
+    } catch (err) {
+      log(`Error during Puppeteer conversion: ${err.message}`, 'warning');
+      success = false;
+    }
     
     // Method 2: html-pdf-node
     if (!success) {
       log('Primary conversion method failed. Trying alternative method...', 'warning');
-      success = await convertWithHtmlPdfNode(sourceContent, conversionOptions);
+      try {
+        success = await convertWithHtmlPdfNode(sourceContent, conversionOptions);
+      } catch (err) {
+        log(`Error during html-pdf-node conversion: ${err.message}`, 'warning');
+        success = false;
+      }
     }
     
     // Method 3: Basic PDF with pdf-lib (guaranteed to work)
     if (!success) {
       log('Alternative method failed. Creating basic PDF as fallback...', 'warning');
-      success = await createBasicPdfWithPdfLib(sourceContent, conversionOptions);
+      try {
+        success = await createBasicPdfWithPdfLib(sourceContent, conversionOptions);
+      } catch (err) {
+        log(`Error during pdf-lib conversion: ${err.message}`, 'warning');
+        success = false;
+      }
     }
     
     if (success) {

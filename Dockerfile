@@ -8,16 +8,18 @@ RUN apt-get update && apt-get install -y \
     fonts-liberation \
     fonts-noto-color-emoji \
     fonts-noto-cjk \
+    libasound2t64 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
     libxss1 \
-    libasound2 \
-    libgtk-3-0 \
+    libxtst6 \
     libcups2 \
-    libdrm2 \
     libxcomposite1 \
     libxdamage1 \
     libxrandr2 \
     libgbm1 \
-    libatk1.0-0 \
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
     libatspi2.0-0 \
     libxshmfence1 \
     --no-install-recommends \
@@ -38,6 +40,7 @@ RUN chmod +x /app/src/index.js
 
 # Set environment variable for Node.js
 ENV NODE_OPTIONS=--no-experimental-fetch
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=false
 
 # Create a directory for temporary files
 RUN mkdir -p /tmp/html-to-pdf
