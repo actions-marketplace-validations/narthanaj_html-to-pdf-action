@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-color-emoji \
     fonts-noto-cjk \
     libxss1 \
-    libasound2 \
+    libasound2t64 \
     libgtk-3-0 \
     libcups2 \
     libdrm2 \
@@ -17,7 +17,6 @@ RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxrandr2 \
     libgbm1 \
-    libasound2 \
     libatk1.0-0 \
     libatspi2.0-0 \
     libxshmfence1 \
