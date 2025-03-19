@@ -28,12 +28,11 @@ RUN apt-get update && apt-get install -y \
 # Create app directory
 WORKDIR /app
 
-# Copy package files and install dependencies
-COPY package*.json ./
-RUN npm ci --only=production
+# Copy both package files and source code
+COPY . .
 
-# Copy source code
-COPY src /app/src
+# Install dependencies
+RUN npm ci --only=production
 
 # Make index.js executable
 RUN chmod +x /app/src/index.js

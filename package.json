@@ -6,8 +6,7 @@
     "type": "commonjs",
     "scripts": {
       "test": "node src/index.js --source=examples/test.html --output=output/test.pdf",
-      "start": "node src/index.js",
-      "postinstall": "chmod +x src/index.js"
+      "start": "node src/index.js"
     },
     "bin": {
       "html-to-pdf": "src/index.js"
