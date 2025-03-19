@@ -1,0 +1,85 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      # Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          
+      # Install dependencies
+      - name: Install dependencies
+        run: npm ci
+      
+      # Create test HTML file
+      - name: Create test HTML
+        run: |
+          mkdir -p examples
+          cat > examples/test.html << EOF
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Test Page</title>
+            <style>
+              body { font-family: Arial, sans-serif; margin: 50px; }
+              h1 { color: #2c3e50; }
+              .emoji { font-size: 24px; }
+            </style>
+          </head>
+          <body>
+            <h1>HTML to PDF Test</h1>
+            <p>This is a test page for the HTML to PDF converter.</p>
+            <p class="emoji">Emojis support: 😀 🚀 🌈 👍</p>
+          </body>
+          </html>
+          EOF
+      
+      # Test the action with the test file
+      - name: Test HTML to PDF conversion (file)
+        run: |
+          mkdir -p output
+          node src/index.js
+        env:
+          INPUT_SOURCE: examples/test.html
+          INPUT_OUTPUT: output/test_file.pdf
+          INPUT_FORMAT: A4
+          INPUT_MARGIN: 10,10,10,10
+          INPUT_ORIENTATION: portrait
+          INPUT_PRINT_BACKGROUND: true
+      
+      # Test with URL
+      - name: Test HTML to PDF conversion (URL)
+        run: |
+          node src/index.js
+        env:
+          INPUT_SOURCE: https://github.com
+          INPUT_OUTPUT: output/test_url.pdf
+          INPUT_FORMAT: A4
+          INPUT_MARGIN: 10,10,10,10
+          INPUT_ORIENTATION: landscape
+          
+      # Check if PDFs were created
+      - name: Verify output
+        run: |
+          if [ ! -f "output/test_file.pdf" ]; then
+            echo "File test failed"
+            exit 1
+          fi
+          
+          if [ ! -f "output/test_url.pdf" ]; then
+            echo "URL test failed"
+            exit 1
+          fi
+          
+          echo "Tests passed successfully!"
