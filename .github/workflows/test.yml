@@ -23,6 +23,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      # Install Chrome directly
+      - name: Install Chrome
+        run: |
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          echo "PUPPETEER_EXECUTABLE_PATH=$(which google-chrome-stable)" >> $GITHUB_ENV
+          google-chrome-stable --version
+      
       # Install browser dependencies (dynamically choose the right packages based on OS)
       - name: Install browser dependencies
         run: |
@@ -161,17 +171,22 @@ jobs:
           </html>
           EOF
       
+      # Build the Docker image
+      - name: Build Docker image
+        run: |
+          docker build -t html-to-pdf-action:test .
+      
       # Test using Docker image
       - name: Test with Docker image (file)
         run: |
-          docker run --rm -v $(pwd):/workspace narthanaj/html-to-pdf-action:latest \
+          docker run --rm -v $(pwd):/workspace html-to-pdf-action:test \
             --source=/workspace/examples/test.html \
             --output=/workspace/output/docker_test_file.pdf
       
       # Test using Docker image with URL
       - name: Test with Docker image (URL)
         run: |
-          docker run --rm -v $(pwd):/workspace narthanaj/html-to-pdf-action:latest \
+          docker run --rm -v $(pwd):/workspace html-to-pdf-action:test \
             --source=https://github.com \
             --output=/workspace/output/docker_test_url.pdf
             

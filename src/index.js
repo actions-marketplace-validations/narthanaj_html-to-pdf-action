@@ -7,6 +7,23 @@ const { URL } = require('url');
 const puppeteer = require('puppeteer');
 const htmlPdf = require('html-pdf-node');
 const { PDFDocument } = require('pdf-lib');
+const { execSync } = require('child_process');
+
+// Enhanced logging function
+function log(message, level = 'info') {
+  const timestamp = new Date().toISOString();
+  const fullMessage = `[${timestamp}] ${message}`;
+  
+  if (typeof core[level] === 'function') {
+    core[level](fullMessage);
+  } else {
+    if (level === 'warning' || level === 'error') {
+      console.error(fullMessage);
+    } else {
+      console.log(fullMessage);
+    }
+  }
+}
 
 // Helper function to get input from environment or CLI arguments
 function getInput(name, options = {}) {
@@ -33,15 +50,6 @@ function getInput(name, options = {}) {
   }
   
   return '';
-}
-
-// Function to log output (works in both GitHub Actions and CLI)
-function log(message, level = 'info') {
-  if (typeof core[level] === 'function') {
-    core[level](message);
-  } else {
-    console.log(message);
-  }
 }
 
 // Function to set output (works in both GitHub Actions and CLI)
@@ -105,13 +113,108 @@ function parseMargins(marginStr) {
   }
 }
 
+// Function to log system information for diagnostics
+async function logSystemInfo() {
+  try {
+    log('System diagnostics:');
+    log(`Node.js version: ${process.version}`);
+    log(`OS: ${process.platform} ${process.arch}`);
+    
+    // Check relevant environment variables
+    const relevantVars = ['PUPPETEER_EXECUTABLE_PATH', 'CHROME_PATH', 'PUPPETEER_SKIP_CHROMIUM_DOWNLOAD'];
+    log('Environment variables that might affect Chrome:');
+    for (const varName of relevantVars) {
+      log(`  ${varName}: ${process.env[varName] || '(not set)'}`);
+    }
+    
+    // Check for Chrome installation
+    try {
+      const chromeVersionOutput = execSync('google-chrome --version 2>/dev/null || google-chrome-stable --version 2>/dev/null || chromium --version 2>/dev/null').toString().trim();
+      log(`Detected Chrome/Chromium: ${chromeVersionOutput}`);
+    } catch (e) {
+      log('Unable to detect Chrome via command line', 'warning');
+    }
+    
+    // Check common Chrome locations
+    const commonPaths = [
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium',
+      '/usr/bin/chromium-browser'
+    ];
+    
+    for (const chromePath of commonPaths) {
+      if (await fs.pathExists(chromePath)) {
+        log(`Found Chrome at: ${chromePath}`);
+      }
+    }
+
+    // List installed packages related to Chrome (on Debian/Ubuntu)
+    try {
+      if (process.platform === 'linux') {
+        const installedPackages = execSync('dpkg -l | grep -E "chrom|puppe"').toString().trim();
+        log(`Installed packages related to Chrome:\n${installedPackages}`);
+      }
+    } catch (e) {
+      // Ignore errors here
+    }
+  } catch (error) {
+    log(`Error during system diagnostics: ${error.message}`, 'warning');
+  }
+}
+
+// Function to find Chrome executable
+async function findChromeExecutable() {
+  // If explicitly defined in environment, use that
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    if (await fs.pathExists(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+      log(`Using Chrome from PUPPETEER_EXECUTABLE_PATH: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+      return process.env.PUPPETEER_EXECUTABLE_PATH;
+    } else {
+      log(`PUPPETEER_EXECUTABLE_PATH is set but file doesn't exist: ${process.env.PUPPETEER_EXECUTABLE_PATH}`, 'warning');
+    }
+  }
+  
+  // Check common locations
+  const commonPaths = [
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser'
+  ];
+  
+  for (const path of commonPaths) {
+    if (await fs.pathExists(path)) {
+      log(`Found Chrome at: ${path}`);
+      return path;
+    }
+  }
+  
+  // Try to find using `which`
+  try {
+    const chromePath = execSync('which google-chrome || which google-chrome-stable || which chromium').toString().trim();
+    if (chromePath && await fs.pathExists(chromePath)) {
+      log(`Found Chrome using 'which' command: ${chromePath}`);
+      return chromePath;
+    }
+  } catch (e) {
+    // Ignore error if 'which' command fails
+  }
+  
+  log('Could not find Chrome executable', 'warning');
+  return null;
+}
+
 // Method 1: Convert HTML to PDF using Puppeteer
 async function convertWithPuppeteer(source, options) {
   log('Converting with Puppeteer...');
   
   try {
-    // Launch browser with relaxed security settings for Docker
-    const browser = await puppeteer.launch({
+    // Find Chrome
+    const executablePath = await findChromeExecutable();
+    
+    // Launch options
+    const launchOptions = {
       headless: 'new',
       args: [
         '--no-sandbox', 
@@ -121,7 +224,15 @@ async function convertWithPuppeteer(source, options) {
         '--disable-gpu',
         '--font-render-hinting=none'
       ]
-    });
+    };
+    
+    // Use explicit Chrome path if found
+    if (executablePath) {
+      launchOptions.executablePath = executablePath;
+    }
+    
+    log(`Launching browser with options: ${JSON.stringify(launchOptions)}`);
+    const browser = await puppeteer.launch(launchOptions);
     
     const page = await browser.newPage();
     
@@ -138,11 +249,13 @@ async function convertWithPuppeteer(source, options) {
     
     // Navigate to URL or set content
     if (options.sourceType === 'url') {
+      log(`Loading URL: ${source}`);
       await page.goto(source, { 
         waitUntil: 'networkidle0',
         timeout: options.timeout 
       });
     } else {
+      log('Setting HTML content');
       await page.setContent(source, { 
         waitUntil: 'networkidle0',
         timeout: options.timeout 
@@ -151,6 +264,7 @@ async function convertWithPuppeteer(source, options) {
     
     // Wait for selector if provided
     if (options.waitForSelector) {
+      log(`Waiting for selector: ${options.waitForSelector}`);
       await page.waitForSelector(options.waitForSelector, { 
         timeout: options.timeout 
       });
@@ -158,11 +272,12 @@ async function convertWithPuppeteer(source, options) {
     
     // Inject custom CSS if provided
     if (options.customCss) {
+      log('Injecting custom CSS');
       await page.addStyleTag({ content: options.customCss });
     }
     
-    // Generate PDF
-    await page.pdf({
+    // Configure PDF options
+    const pdfOptions = {
       path: options.output,
       format: options.format,
       landscape: options.orientation === 'landscape',
@@ -177,12 +292,17 @@ async function convertWithPuppeteer(source, options) {
       headerTemplate: options.headerTemplate || '',
       footerTemplate: options.footerTemplate || '',
       scale: options.scale
-    });
+    };
+    
+    log(`Generating PDF with options: ${JSON.stringify(pdfOptions)}`);
+    await page.pdf(pdfOptions);
     
     await browser.close();
+    log('Puppeteer conversion completed successfully');
     return true;
   } catch (error) {
     log(`Puppeteer conversion error: ${error.message}`, 'warning');
+    log(`Error stack: ${error.stack}`, 'warning');
     return false;
   }
 }
@@ -192,12 +312,17 @@ async function convertWithHtmlPdfNode(source, options) {
   log('Converting with html-pdf-node...');
   
   try {
+    // Find Chrome
+    const executablePath = await findChromeExecutable();
+    
     // Create file object based on source type
     let file;
     if (options.sourceType === 'url') {
       file = { url: source };
+      log(`Using URL source: ${source}`);
     } else {
       file = { content: source };
+      log('Using HTML content source');
     }
     
     // Convert html-pdf-node options format
@@ -213,21 +338,33 @@ async function convertWithHtmlPdfNode(source, options) {
       printBackground: options.printBackground,
       scale: options.scale,
       path: options.output,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-web-security'
+      ]
     };
     
-    // Generate PDF
+    // Use explicit Chrome path if found
+    if (executablePath) {
+      pdfOptions.executablePath = executablePath;
+    }
+    
+    log(`Generating PDF with html-pdf-node using options: ${JSON.stringify(pdfOptions)}`);
     await htmlPdf.generatePdf(file, pdfOptions);
+    log('html-pdf-node conversion completed successfully');
     return true;
   } catch (error) {
     log(`html-pdf-node conversion error: ${error.message}`, 'warning');
+    log(`Error stack: ${error.stack}`, 'warning');
     return false;
   }
 }
 
 // Method 3: Create a simple PDF with minimal content using pdf-lib
 async function createBasicPdfWithPdfLib(source, options) {
-  log('Creating basic PDF with pdf-lib...');
+  log('Creating basic PDF with pdf-lib (fallback method)...');
   
   try {
     // Create a new PDF document
@@ -295,6 +432,7 @@ async function createBasicPdfWithPdfLib(source, options) {
     const pdfBytes = await pdfDoc.save();
     await fs.writeFile(options.output, pdfBytes);
     
+    log('Basic PDF created successfully with pdf-lib');
     return true;
   } catch (error) {
     log(`pdf-lib creation error: ${error.message}`, 'warning');
@@ -305,6 +443,9 @@ async function createBasicPdfWithPdfLib(source, options) {
 // Main function
 async function run() {
   try {
+    // Log system information for diagnostics
+    await logSystemInfo();
+    
     // Get inputs
     const source = getInput('source', { required: true });
     const output = getInput('output', { required: true });
