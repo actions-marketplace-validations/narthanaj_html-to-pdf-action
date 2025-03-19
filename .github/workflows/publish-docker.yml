@@ -1,4 +1,4 @@
-name: Update Docker Hub Image Tags
+name: Build and Push Docker Image
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  update_docker_tags:
-    name: Update Docker Hub image tags
+  build_and_push:
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -29,26 +29,24 @@ jobs:
         if: github.event_name == 'release'
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
-      - name: Tag and push Docker image (for releases)
+      - name: Build and push Docker image (for releases)
         if: github.event_name == 'release'
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
           MAJOR=$(echo $VERSION | cut -d. -f1)
           MINOR=$(echo $VERSION | cut -d. -f2)
 
-          docker pull narthanaj/html-to-pdf-action:latest
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag narthanaj/html-to-pdf-action:$VERSION \
+            --tag narthanaj/html-to-pdf-action:$MAJOR.$MINOR \
+            --tag narthanaj/html-to-pdf-action:$MAJOR \
+            --push .
 
-          docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$VERSION
-          docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$MAJOR.$MINOR
-          docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:$MAJOR
-
-          docker push narthanaj/html-to-pdf-action:$VERSION
-          docker push narthanaj/html-to-pdf-action:$MAJOR.$MINOR
-          docker push narthanaj/html-to-pdf-action:$MAJOR
-
-      - name: Tag and push Docker image (for main branch pushes)
+      - name: Build and push Docker image (for main branch pushes)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          docker pull narthanaj/html-to-pdf-action:latest
-          docker tag narthanaj/html-to-pdf-action:latest narthanaj/html-to-pdf-action:latest
-          docker push narthanaj/html-to-pdf-action:latest
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag narthanaj/html-to-pdf-action:latest \
+            --push .
