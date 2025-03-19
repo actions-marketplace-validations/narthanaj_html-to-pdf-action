@@ -141,6 +141,7 @@ async function run() {
     // Launch browser
     log('Launching browser...');
     const browser = await puppeteer.launch({
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome',
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -149,7 +150,7 @@ async function run() {
         '--disable-gpu',
         '--font-render-hinting=none' // Improves font rendering
       ],
-      headless: true
+      headless: 'new'
     });
 
     // Create a new page

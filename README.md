@@ -168,19 +168,31 @@ html-to-pdf-action/
 └── README.md
 ```
 
-## Local Testing
+## Building Your Own Docker Image
 
-You can test the action locally using the provided script:
+If you need to build a custom version of the Docker image:
 
 ```bash
-# Make the script executable
-chmod +x test-local.sh
+# Clone the repository
+git clone https://github.com/[YOUR-USERNAME]/html-to-pdf-action.git
+cd html-to-pdf-action
 
-# Run the test script
-./test-local.sh
+# Build the Docker image
+docker build -t [YOUR-USERNAME]/html-to-pdf-action:latest .
+
+# Push to Docker Hub
+docker push [YOUR-USERNAME]/html-to-pdf-action:latest
 ```
 
-This script will test both the local Node.js execution and the Docker image execution.
+### Docker Image Details
+
+The Docker image includes:
+- Node.js 18
+- Google Chrome (stable)
+- Font support for many languages and emojis
+- Puppeteer configured to use the system Chrome
+
+This ensures the action works consistently in both local and GitHub Actions environments.
 
 ### Testing Node.js Directly
 
@@ -222,6 +234,7 @@ docker run --rm -v $(pwd):/workspace narthanaj/html-to-pdf-action:latest \
 6. Create a pull request
 
 Note: This project requires Node.js 18 or later.
+
 
 ## License
 
